@@ -8,6 +8,7 @@ import moe.ono.bridge.ntapi.ChatTypeConstants.C2C
 import moe.ono.bridge.ntapi.ChatTypeConstants.GROUP
 import moe.ono.bridge.ntapi.MsgServiceHelper
 import moe.ono.config.CacheConfig.setMsgRecord
+import moe.ono.creator.QQMessageFetcherResultDialog
 import moe.ono.hooks._base.BaseSwitchFunctionHookItem
 import moe.ono.hooks._core.annotation.HookItem
 import moe.ono.hooks._core.factory.HookItemFactory.getItem
@@ -27,65 +28,60 @@ import moe.ono.util.SyncUtils
 class QQMessageFetcher : BaseSwitchFunctionHookItem(), OnMenuBuilder {
 
     companion object {
-        fun pullGroupMsg(msgRecord: MsgRecord){
+        fun pullGroupMsg(msgRecord: MsgRecord) {
             val seq = msgRecord.msgSeq
-            sendPacket("MessageSvc.PbGetGroupMsg", """{"1": ${msgRecord.peerUid}, "2": ${seq}, "3": ${seq}, "6": 0}""")
+            QQMessageFetcherResultDialog.setSourceCommand("MessageSvc.PbGetGroupMsg")
+            sendPacket(
+                "MessageSvc.PbGetGroupMsg",
+                """{"1": ${msgRecord.peerUid}, "2": $seq, "3": $seq, "6": 0}""",
+            )
         }
 
-        fun pullC2CMsg(msgRecord: MsgRecord){
-            sendPacket("MessageSvc.PbGetOneDayRoamMsg", """{"1": ${msgRecord.peerUin}, "2": ${msgRecord.msgTime}, "3": 0, "4": 1}""")
+        fun pullC2CMsg(msgRecord: MsgRecord) {
+            QQMessageFetcherResultDialog.setSourceCommand("MessageSvc.PbGetOneDayRoamMsg")
+            sendPacket(
+                "MessageSvc.PbGetOneDayRoamMsg",
+                """{"1": ${msgRecord.peerUin}, "2": ${msgRecord.msgTime}, "3": 0, "4": 1}""",
+            )
         }
     }
 
-    override fun entry(classLoader: ClassLoader) {}
+    override fun entry(classLoader: ClassLoader) = Unit
 
     override fun onGetMenu(aioMsgItem: Any, targetType: String, param: MethodHookParam) {
-        if (!getItem(this.javaClass).isEnabled) {
-            return
-        }
+        if (!getItem(this.javaClass).isEnabled) return
 
         val item: Any = CustomMenu.createItemIconNt(
             aioMsgItem,
             "拉取",
             R.drawable.ic_get_app_24,
-            R.id.item_pull_msg
+            R.id.item_pull_msg,
         ) {
             try {
                 val msgID = Reflex.invokeVirtual(aioMsgItem, "getMsgId") as Long
-                val msgIDs = java.util.ArrayList<Long>()
-                msgIDs.add(msgID)
+                val msgIDs = java.util.ArrayList<Long>().apply { add(msgID) }
+
                 AppRuntimeHelper.getAppRuntime()
-                    ?.let {
-                        MsgServiceHelper.getKernelMsgService(
-                            it
-                        )
-                    }?.getMsgsByMsgId(
-                        Session.getContact(),
-                        msgIDs
-                    ) { _, _, msgList ->
+                    ?.let { MsgServiceHelper.getKernelMsgService(it) }
+                    ?.getMsgsByMsgId(Session.getContact(), msgIDs) { _, _, msgList ->
                         SyncUtils.runOnUiThread {
                             for (msgRecord in msgList) {
-                                val chatType = msgRecord.chatType
-
-                                when (chatType) {
+                                when (msgRecord.chatType) {
                                     C2C -> {
-                                        pullC2CMsg(msgRecord)
                                         setMsgRecord(msgRecord)
+                                        pullC2CMsg(msgRecord)
                                     }
 
                                     GROUP -> {
-                                        pullGroupMsg(msgRecord)
                                         setMsgRecord(msgRecord)
+                                        pullGroupMsg(msgRecord)
                                     }
 
-                                    else -> {
-                                        Toasts.info(
-                                            ContextUtils.getCurrentActivity(),
-                                            "不支持的聊天类型"
-                                        )
-                                    }
+                                    else -> Toasts.info(
+                                        ContextUtils.getCurrentActivity(),
+                                        "不支持的聊天类型",
+                                    )
                                 }
-
                             }
                         }
                     }
@@ -94,6 +90,7 @@ class QQMessageFetcher : BaseSwitchFunctionHookItem(), OnMenuBuilder {
             }
             Unit
         }
+
         param.result = listOf(item) + param.result as List<*>
     }
 }
