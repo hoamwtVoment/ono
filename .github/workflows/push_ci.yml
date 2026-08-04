@@ -3,33 +3,15 @@ name: Android CI
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.txt'
-      - 'renovate.json'
-      - '.editorconfig'
-      - '.gitignore'
-      - '.github/**'
-      - '.github/workflows/**'
-      - '.idea/**'
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.txt'
-      - 'renovate.json'
-      - '.editorconfig'
-      - '.gitignore'
-      - '.github/**'
-      - '.github/workflows/**'
-      - '.idea/**'
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build
+    name: Build Debug APK
     runs-on: ubuntu-latest
-    if: ${{ !startsWith(github.event.head_commit.message, '[skip ci]') && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request') }}
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
