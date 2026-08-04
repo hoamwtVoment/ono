@@ -65,8 +65,12 @@ public final class ForwardMessageSender {
         new Thread(() -> {
             try {
                 long groupUin = chatType == GROUP ? Long.parseLong(peer) : 0L;
-                String fileName = UUID.randomUUID().toString();
-                JSONObject multiMsg = buildMultiMsg(nodes, groupUin, chatType == GROUP, fileName);
+                // QQ's forward-message viewer resolves the root item by the conventional
+                // PbMultiMsgItem.fileName "MultiMsg".  The Ark card's filename/uniseq is
+                // a separate per-card UUID and must not replace that root item name.
+                String cardFileName = UUID.randomUUID().toString();
+                JSONObject multiMsg = buildMultiMsg(nodes, groupUin, chatType == GROUP);
+                Logger.d("ForwardMessageSender-multiMsg", multiMsg.toString());
                 byte[] encoded = QPacketHelperKt.buildMessage(multiMsg.toString());
                 byte[] compressed = gzip(encoded);
                 JSONObject request = buildUploadRequest(peer, chatType, compressed);
@@ -75,6 +79,7 @@ public final class ForwardMessageSender {
                         true,
                         QPacketHelperKt.buildMessage(request.toString())
                 );
+                Logger.d("ForwardMessageSender-upload-response", String.valueOf(response));
                 String resid = extractResid(response);
                 if (resid.isEmpty()) {
                     throw new IllegalStateException("服务器未返回 resid；响应=" + String.valueOf(response));
@@ -93,7 +98,7 @@ public final class ForwardMessageSender {
                 if (source.isEmpty()) source = chatType == GROUP ? "群聊的聊天记录" : "聊天记录";
                 String summary = summaryText == null ? "" : summaryText.trim();
                 if (summary.isEmpty()) summary = "查看" + nodes.size() + "条转发消息";
-                String ark = buildArk(nodes, resid, source, summary, fileName).toString();
+                String ark = buildArk(nodes, resid, source, summary, cardFileName).toString();
                 SyncUtils.runOnUiThread(() -> {
                     try {
                         PacketHelperDialog.send_ark_msg(ark, contactCompat);
@@ -113,8 +118,7 @@ public final class ForwardMessageSender {
     private static JSONObject buildMultiMsg(
             List<ForwardMessageNode> nodes,
             long groupUin,
-            boolean group,
-            String fileName
+            boolean group
     ) throws Exception {
         JSONArray records = new JSONArray();
         int baseSeq = ThreadLocalRandom.current().nextInt(1000, 900000);
@@ -160,10 +164,13 @@ public final class ForwardMessageSender {
                     .put("3", body));
         }
 
-        JSONObject item = new JSONObject()
-                .put("1", fileName)
+        // PbMultiMsgTransmit.field 2 = PbMultiMsgItem.
+        // The root item is conventionally named "MultiMsg"; QQ opens the card by
+        // requesting that entry from the downloaded resource.
+        JSONObject rootItem = new JSONObject()
+                .put("1", "MultiMsg")
                 .put("2", new JSONObject().put("1", records));
-        return new JSONObject().put("2", new JSONArray().put(item));
+        return new JSONObject().put("2", rootItem);
     }
 
     private static byte[] gzip(byte[] input) throws Exception {
