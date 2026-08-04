@@ -69,6 +69,29 @@ abstract class QQInterfaces {
             sendToServiceMsg(toServiceMsg)
         }
 
+        /** Sends an arbitrary protobuf command through the injected servlet and waits for its response. */
+        @JvmStatic
+        fun sendBufferAndWait(
+            cmd: String,
+            isProto: Boolean,
+            data: ByteArray,
+        ): JSONObject? {
+            val toServiceMsg = createToServiceMsg(cmd).apply {
+                appSeq = generateSeq()
+                putWupBuffer(data)
+                addAttribute("req_pb_protocol_flag", isProto)
+                extraData.putBoolean("req_pb_protocol_flag", isProto)
+                attributes["req_pb_protocol_flag"] = isProto
+            }
+            return try {
+                sendReq(toServiceMsg)
+                receive(toServiceMsg.appSeq)
+            } catch (e: Exception) {
+                Logger.e("sendBufferAndWait failed: $cmd", e)
+                null
+            }
+        }
+
 
         // FIXME: 部分情况下发包失败 ，但无法精准复现
         fun sendOidbSvcTrpcTcp(

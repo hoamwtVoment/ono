@@ -36,6 +36,7 @@ import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
@@ -90,6 +91,9 @@ import java.util.zip.GZIPOutputStream;
 import moe.ono.R;
 import moe.ono.bridge.Nt_kernel_bridge;
 import moe.ono.bridge.kernelcompat.ContactCompat;
+import moe.ono.creator.forward.ForwardMessageDraft;
+import moe.ono.creator.forward.ForwardMessageManagerDialog;
+import moe.ono.creator.forward.ForwardMessageSender;
 import moe.ono.hooks.base.api.QQMsgRespHandler;
 import moe.ono.hooks.protocol.QPacketHelperKt;
 import moe.ono.hooks.base.util.Toasts;
@@ -127,6 +131,8 @@ public class PacketHelperDialog extends BottomPopupView {
     private static String originalPbContent = "";
     public static RadioGroup mRgSendBy;
     public static CheckBox mRbXmlForward;
+    private final ForwardMessageDraft forwardDraft = new ForwardMessageDraft();
+    private Button btnForwardManager;
 
 
 
@@ -197,6 +203,23 @@ public class PacketHelperDialog extends BottomPopupView {
             etUin.setText(AppRuntimeHelper.getAccount());
 
             mRbXmlForward = findViewById(R.id.xml_forward);
+            mRbXmlForward.setText("\u5b8c\u6574\u8f6c\u53d1\u6a21\u5f0f");
+            mRbXmlForward.setChecked(true);
+            btnForwardManager = new Button(getContext());
+            btnForwardManager.setAllCaps(false);
+            btnForwardManager.setText("\u6d88\u606f\u7ba1\u7406\uff080\uff09");
+            forwardConfig.addView(btnForwardManager, 0, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+            btnForwardManager.setOnClickListener(v -> ForwardMessageManagerDialog.show(
+                    getContext(),
+                    forwardDraft,
+                    etUin.getText().toString().trim(),
+                    etNickname.getText().toString().trim(),
+                    editText.getText().toString(),
+                    this::updateForwardManagerButton
+            ));
 
             try {
                 mRgSendType.check(R.id.rb_element);
@@ -304,9 +327,15 @@ public class PacketHelperDialog extends BottomPopupView {
                 String send_type = rb[0].getText().toString();
                 ContactCompat contactCompat = getContact();
 
-                if (text.isEmpty()){
+                if (text.isEmpty() && (mRgSendBy.getCheckedRadioButtonId() != R.id.rb_send_by_forwarding || forwardDraft.isEmpty())){
+
+
                     Toasts.info(getContext(), "你什么都没输入呢");
+
+
                     return;
+
+
                 }
 
                 // ark
@@ -396,76 +425,22 @@ public class PacketHelperDialog extends BottomPopupView {
                         Logger.d("ElementSender-send-by-longmsg", json);
                         QPacketHelperKt.sendPacket("trpc.group.long_msg_interface.MsgService.SsoSendLongMsg", json);
                     } else if (rbSendBy == R.id.rb_send_by_forwarding){
-                        String data = "{\"2\": {\n" +
-                                "  \"1\": \"MultiMsg\",\n" +
-                                "  \"2\": {\n" +
-                                "    \"1\": [\n" +
-                                "      {\n" +
-                                "        \"1\": {\n" +
-                                "          \"1\": "+etUin.getText()+",\n" +
-                                "          \"5\": {},\n" +
-                                "          \"6\": {},\n" +
-                                "          \"7\": {},\n" +
-                                "          \"8\": {\n" +
-                                "            \"1\": 10001,\n" +
-                                "            \"4\": \"@ouom_pub\",\n" +
-                                "            \"5\": 2\n" +
-                                "          }\n" +
-                                "        },\n" +
-                                "        \"2\": {\n" +
-                                "          \"1\": 82,\n" +
-                                "          \"2\": {},\n" +
-                                "          \"3\": {},\n" +
-                                "          \"4\": "+ThreadLocalRandom.current().nextInt(0, 10000000)+",\n" +
-                                "          \"5\": "+ThreadLocalRandom.current().nextInt(0, 100000)+",\n" +
-                                "          \"6\": "+ThreadLocalRandom.current().nextInt(0, 10000000)+",\n" +
-                                "          \"7\": 1,\n" +
-                                "          \"8\": 0,\n" +
-                                "          \"9\": 0,\n" +
-                                "          \"15\": {\n" +
-                                "            \"1\": 0,\n" +
-                                "            \"2\": 0,\n" +
-                                "            \"3\": 0,\n" +
-                                "            \"4\": \"\",\n" +
-                                "            \"5\": \"\"\n" +
-                                "          }\n" +
-                                "        },\n" +
-                                "        \"3\": {\n" +
-                                "          \"1\": {\n" +
-                                "            \"2\": " + text +
-                                "          }\n" +
-                                "        }\n" +
-                                "      }\n" +
-                                "    ]\n" +
-                                "  }\n" +
-                                "}}\n".trim();
-
-                        Logger.d("data", data);
-                        byte[] protoBytes = QPacketHelperKt.buildMessage(data);
-                        byte[] compressedData = compressData(protoBytes);
-
-                        long target = Long.parseLong(chatType == GROUP ? peer : getUinFromUid(peer));
-
-                        String json = "{\n" +
-                                "  \"2\": {\n" +
-                                "    \"1\": " + (chatType == C2C ? 1 : 3) + ",\n" +
-                                "    \"2\": {\n" +
-                                "      \"2\": "+ target +"\n" +
-                                "    },\n" +
-                                "    \"4\": \"hex->"+bytesToHex(compressedData)+"\"\n" +
-                                "  },\n" +
-                                "  \"15\": {\n" +
-                                "    \"1\": 4,\n" +
-                                "    \"2\": 2,\n" +
-                                "    \"3\": 9,\n" +
-                                "    \"4\": 0\n" +
-                                "  }\n" +
-                                "}".trim();
-
-                        Logger.d("ElementSender-send-by-forward", json);
-                        QPacketHelperKt.sendPacket("trpc.group.long_msg_interface.MsgService.SsoSendLongMsg", json);
+                        ForwardMessageSender.send(
+                                getContext(),
+                                forwardDraft,
+                                text,
+                                etUin.getText().toString(),
+                                etNickname.getText().toString(),
+                                etDesc.getText().toString(),
+                                etHint.getText().toString(),
+                                mRbXmlForward.isChecked(),
+                                peer,
+                                chatType,
+                                contactCompat
+                        );
+                        return;
                     }
-                    Toasts.success(getContext(), "请求成功");
+                    Toasts.success(getContext(), "\u8bf7\u6c42\u6210\u529f");
 
                     if (rbSendBy == R.id.rb_send_by_directly) dialog.dismiss();
                     fadeOutAndClearBlur(decorView);
@@ -525,6 +500,12 @@ public class PacketHelperDialog extends BottomPopupView {
 
     }
 
+
+    private void updateForwardManagerButton() {
+        if (btnForwardManager != null) {
+            btnForwardManager.setText("\u6d88\u606f\u7ba1\u7406\uff08" + forwardDraft.size() + "\uff09");
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     private void showFullScreenJsonEditor() {
