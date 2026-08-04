@@ -369,10 +369,12 @@ public class PacketHelperDialog extends BottomPopupView {
 
                 // protobuf
                 try {
-                    if (!isJSON(text)){
-                        Toasts.info(getContext(), "无效的代码");
-                        return;
-                    }
+                    if (!isJSON(text)
+        && (mRgSendBy.getCheckedRadioButtonId() != R.id.rb_send_by_forwarding
+        || forwardDraft.isEmpty())){
+    Toasts.info(getContext(), "无效的代码");
+    return;
+}
 
                     int rbSendBy = mRgSendBy.getCheckedRadioButtonId();
                     if (chat_type != 1 && chat_type != 2) {

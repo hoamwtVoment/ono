@@ -65,7 +65,8 @@ public final class ForwardMessageSender {
         new Thread(() -> {
             try {
                 long groupUin = chatType == GROUP ? Long.parseLong(peer) : 0L;
-                JSONObject multiMsg = buildMultiMsg(nodes, groupUin, chatType == GROUP);
+                String fileName = UUID.randomUUID().toString();
+                JSONObject multiMsg = buildMultiMsg(nodes, groupUin, chatType == GROUP, fileName);
                 byte[] encoded = QPacketHelperKt.buildMessage(multiMsg.toString());
                 byte[] compressed = gzip(encoded);
                 JSONObject request = buildUploadRequest(peer, chatType, compressed);
@@ -92,7 +93,7 @@ public final class ForwardMessageSender {
                 if (source.isEmpty()) source = chatType == GROUP ? "群聊的聊天记录" : "聊天记录";
                 String summary = summaryText == null ? "" : summaryText.trim();
                 if (summary.isEmpty()) summary = "查看" + nodes.size() + "条转发消息";
-                String ark = buildArk(nodes, resid, source, summary).toString();
+                String ark = buildArk(nodes, resid, source, summary, fileName).toString();
                 SyncUtils.runOnUiThread(() -> {
                     try {
                         PacketHelperDialog.send_ark_msg(ark, contactCompat);
@@ -112,7 +113,8 @@ public final class ForwardMessageSender {
     private static JSONObject buildMultiMsg(
             List<ForwardMessageNode> nodes,
             long groupUin,
-            boolean group
+            boolean group,
+            String fileName
     ) throws Exception {
         JSONArray records = new JSONArray();
         int baseSeq = ThreadLocalRandom.current().nextInt(1000, 900000);
@@ -158,9 +160,10 @@ public final class ForwardMessageSender {
                     .put("3", body));
         }
 
-        return new JSONObject().put("2", new JSONObject()
-                .put("1", "MultiMsg")
-                .put("2", new JSONObject().put("1", records)));
+        JSONObject item = new JSONObject()
+                .put("1", fileName)
+                .put("2", new JSONObject().put("1", records));
+        return new JSONObject().put("2", new JSONArray().put(item));
     }
 
     private static byte[] gzip(byte[] input) throws Exception {
@@ -174,19 +177,18 @@ public final class ForwardMessageSender {
     private static JSONObject buildUploadRequest(String peer, int chatType, byte[] compressed) throws Exception {
         JSONObject info = new JSONObject()
                 .put("1", chatType == C2C ? 1 : 3)
+                // LongMsgUid.field 2. Group uploads require both the string peer and groupCode.
+                .put("2", new JSONObject().put("2", peer))
                 .put("4", "hex->" + bytesToHex(compressed));
         if (chatType == GROUP) {
             info.put("3", Long.parseLong(peer));
-        } else {
-            // LongMsgUid.field 2 is the NT UID string.
-            info.put("2", new JSONObject().put("2", peer));
         }
         return new JSONObject()
                 .put("2", info)
                 .put("15", new JSONObject()
                         .put("1", 4)
-                        .put("2", 2)
-                        .put("3", 9)
+                        .put("2", 1)
+                        .put("3", 7)
                         .put("4", 0));
     }
 
@@ -236,9 +238,10 @@ public final class ForwardMessageSender {
             List<ForwardMessageNode> nodes,
             String resid,
             String source,
-            String summary
+            String summary,
+            String fileName
     ) throws Exception {
-        String uniseq = UUID.randomUUID().toString();
+        String uniseq = fileName;
         JSONArray news = new JSONArray();
         for (int i = 0; i < Math.min(4, nodes.size()); i++) {
             ForwardMessageNode node = nodes.get(i);
