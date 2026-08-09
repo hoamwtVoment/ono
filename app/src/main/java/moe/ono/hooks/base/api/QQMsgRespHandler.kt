@@ -28,7 +28,6 @@ import moe.ono.hooks.item.chat.FakeFileRecall
 import moe.ono.hooks.item.developer.QQPacketHelperC2CDisplayFixer
 import moe.ono.hooks.item.entertainment.ModifyTextMessage
 import moe.ono.hooks.protocol.buildMessage
-import moe.ono.hooks.protocol.sendPacket
 import moe.ono.loader.hookapi.IRespHandler
 import moe.ono.reflex.XField
 import moe.ono.reflex.XMethod
@@ -42,11 +41,9 @@ import moe.ono.util.FunProtoData.getUnpPackage
 import moe.ono.util.Logger
 import moe.ono.util.QAppUtils
 import moe.ono.util.SyncUtils
-import moe.ono.util.Utils
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.util.UUID
 import java.util.zip.Deflater
 
 @HookItem(path = "API/QQMsgRespHandler")
@@ -406,61 +403,6 @@ class QQMsgRespHandler : ApiHookItem() {
                                     "}"
 
                             PacketHelperDialog.setContent(content, true)
-
-                        } else if (PacketHelperDialog.mRgSendBy.checkedRadioButtonId == R.id.rb_send_by_forwarding) {
-                            if (!PacketHelperDialog.mRbXmlForward.isChecked) {
-                                val json = "{\n" +
-                                        "  \"app\": \"com.tencent.multimsg\",\n" +
-                                        "  \"config\": {\n" +
-                                        "    \"autosize\": 1,\n" +
-                                        "    \"forward\": 1,\n" +
-                                        "    \"round\": 1,\n" +
-                                        "    \"type\": \"normal\",\n" +
-                                        "    \"width\": 300\n" +
-                                        "  },\n" +
-                                        "  \"desc\": \"${PacketHelperDialog.etHint.text}\",\n" +
-                                        "  \"extra\": \"{\\\"filename\\\":\\\"${UUID.randomUUID()}\\\",\\\"tsum\\\":1}\\n\",\n" +
-                                        "  \"meta\": {\n" +
-                                        "    \"detail\": {\n" +
-                                        "      \"news\": [\n" +
-                                        "        {\n" +
-                                        "          \"text\": \"${PacketHelperDialog.etDesc.text}\"\n" +
-                                        "        }\n" +
-                                        "      ],\n" +
-                                        "      \"resid\": \"$resid\",\n" +
-                                        "      \"source\": \"聊天记录\",\n" +
-                                        "      \"summary\": \"PacketHelper@ouom_pub\",\n" +
-                                        "      \"uniseq\": \"${UUID.randomUUID()}\"\n" +
-                                        "    }\n" +
-                                        "  },\n" +
-                                        "  \"prompt\": \"${PacketHelperDialog.etHint.text}\",\n" +
-                                        "  \"ver\": \"0.0.0.5\",\n" +
-                                        "  \"view\": \"contact\"\n" +
-                                        "}"
-
-                                Logger.d(json)
-                                val content = "{\n" +
-                                        "    \"51\": {\n" +
-                                        "        \"1\": \"hex->${Utils.bytesToHex(compressData(json))}\"\n" +
-                                        "    }\n" +
-                                        "}"
-
-                                PacketHelperDialog.setContent(content, false)
-                            } else {
-                                val xml = """<?xml version="1.0" encoding="utf-8"?><msg brief="${PacketHelperDialog.etDesc.text}" m_fileName="${UUID.randomUUID()}" action="viewMultiMsg" tSum="1" flag="3" m_resid="$resid" serviceID="35" m_fileSize="0"><item layout="1"><title color="#000000" size="34">聊天记录</title><title color="#777777" size="26">${PacketHelperDialog.etDesc.text}</title><hr></hr><summary color="#808080" size="26">PacketHelper@ouom_pub</summary></item><source name="@ouom_pub"></source></msg>"""
-                                Logger.d("xml", xml)
-
-                                val json = """{
-    "12": {
-        "1": "hex->${Utils.bytesToHex(compressData(xml))}",
-        "2": 60
-    }
-}""".trim()
-
-                                Logger.d(json)
-
-                                PacketHelperDialog.setContentForLongmsg(json)
-                            }
 
                         }
 

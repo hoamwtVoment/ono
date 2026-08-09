@@ -2,6 +2,7 @@ package moe.ono.creator.forward;
 
 import static moe.ono.bridge.ntapi.ChatTypeConstants.C2C;
 import static moe.ono.bridge.ntapi.ChatTypeConstants.GROUP;
+import static moe.ono.bridge.ntapi.RelationNTUinAndUidApi.getUinFromUid;
 import static moe.ono.util.Utils.bytesToHex;
 
 import android.content.Context;
@@ -64,12 +65,7 @@ public final class ForwardMessageSender {
         Toasts.info(context, "正在上传 " + nodes.size() + " 条转发消息…");
         new Thread(() -> {
             try {
-                long groupUin = chatType == GROUP ? Long.parseLong(peer) : 0L;
-                // QQ's forward-message viewer resolves the root item by the conventional
-                // PbMultiMsgItem.fileName "MultiMsg".  The Ark card's filename/uniseq is
-                // a separate per-card UUID and must not replace that root item name.
-                String cardFileName = UUID.randomUUID().toString();
-                JSONObject multiMsg = buildMultiMsg(nodes, groupUin, chatType == GROUP);
+                JSONObject multiMsg = buildMultiMsg(nodes);
                 Logger.d("ForwardMessageSender-multiMsg", multiMsg.toString());
                 byte[] encoded = QPacketHelperKt.buildMessage(multiMsg.toString());
                 byte[] compressed = gzip(encoded);
@@ -98,7 +94,7 @@ public final class ForwardMessageSender {
                 if (source.isEmpty()) source = chatType == GROUP ? "群聊的聊天记录" : "聊天记录";
                 String summary = summaryText == null ? "" : summaryText.trim();
                 if (summary.isEmpty()) summary = "查看" + nodes.size() + "条转发消息";
-                String ark = buildArk(nodes, resid, source, summary, cardFileName).toString();
+                String ark = buildArk(nodes, resid, source, summary).toString();
                 SyncUtils.runOnUiThread(() -> {
                     try {
                         PacketHelperDialog.send_ark_msg(ark, contactCompat);
@@ -115,43 +111,37 @@ public final class ForwardMessageSender {
         }, "ono-forward-uploader").start();
     }
 
-    private static JSONObject buildMultiMsg(
-            List<ForwardMessageNode> nodes,
-            long groupUin,
-            boolean group
-    ) throws Exception {
+    private static JSONObject buildMultiMsg(List<ForwardMessageNode> nodes) throws Exception {
         JSONArray records = new JSONArray();
-        int baseSeq = ThreadLocalRandom.current().nextInt(1000, 900000);
-        for (int i = 0; i < nodes.size(); i++) {
-            ForwardMessageNode node = nodes.get(i);
+        for (ForwardMessageNode node : nodes) {
+            // Keep the record envelope identical to the original, known-good
+            // single-message implementation. Only field 3/body varies per node.
             JSONObject head = new JSONObject()
-                    .put("17", 8)
                     .put("1", node.getUin())
-                    .put("2", node.getUin())
-                    .put("3", 82)
-                    .put("4", 1)
-                    .put("5", baseSeq + i)
-                    .put("6", node.getTimeSeconds());
-            if (group) {
-                head.put("9", new JSONObject()
-                        .put("1", groupUin)
-                        .put("2", 1)
-                        .put("3", 0)
-                        .put("4", node.getNickname())
-                        .put("6", 1)
-                        .put("7", 1));
-            } else {
-                // C2C records use the peer display block that Ono's original forward builder used.
-                head.put("8", new JSONObject()
+                    .put("5", new JSONObject())
+                    .put("6", new JSONObject())
+                    .put("7", new JSONObject())
+                    .put("8", new JSONObject()
                         .put("1", 10001)
                         .put("4", node.getNickname())
                         .put("5", 2));
-            }
 
             JSONObject contentHead = new JSONObject()
-                    .put("1", 1)
-                    .put("2", 0)
-                    .put("3", 0);
+                    .put("1", 82)
+                    .put("2", new JSONObject())
+                    .put("3", new JSONObject())
+                    .put("4", ThreadLocalRandom.current().nextInt(0, 10_000_000))
+                    .put("5", ThreadLocalRandom.current().nextInt(0, 100_000))
+                    .put("6", ThreadLocalRandom.current().nextInt(0, 10_000_000))
+                    .put("7", 1)
+                    .put("8", 0)
+                    .put("9", 0)
+                    .put("15", new JSONObject()
+                            .put("1", 0)
+                            .put("2", 0)
+                            .put("3", 0)
+                            .put("4", "")
+                            .put("5", ""));
 
             JSONObject body = new JSONObject().put(
                     "1",
@@ -164,9 +154,7 @@ public final class ForwardMessageSender {
                     .put("3", body));
         }
 
-        // PbMultiMsgTransmit.field 2 = PbMultiMsgItem.
-        // The root item is conventionally named "MultiMsg"; QQ opens the card by
-        // requesting that entry from the downloaded resource.
+        // The viewer always resolves the conventional root entry named "MultiMsg".
         JSONObject rootItem = new JSONObject()
                 .put("1", "MultiMsg")
                 .put("2", new JSONObject().put("1", records));
@@ -182,20 +170,19 @@ public final class ForwardMessageSender {
     }
 
     private static JSONObject buildUploadRequest(String peer, int chatType, byte[] compressed) throws Exception {
+        // Preserve the original request shape. For C2C, field 2 expects the
+        // numeric UIN rather than the NT UID used by the current session.
+        long target = Long.parseLong(chatType == GROUP ? peer : getUinFromUid(peer));
         JSONObject info = new JSONObject()
                 .put("1", chatType == C2C ? 1 : 3)
-                // LongMsgUid.field 2. Group uploads require both the string peer and groupCode.
-                .put("2", new JSONObject().put("2", peer))
+                .put("2", new JSONObject().put("2", target))
                 .put("4", "hex->" + bytesToHex(compressed));
-        if (chatType == GROUP) {
-            info.put("3", Long.parseLong(peer));
-        }
         return new JSONObject()
                 .put("2", info)
                 .put("15", new JSONObject()
                         .put("1", 4)
-                        .put("2", 1)
-                        .put("3", 7)
+                        .put("2", 2)
+                        .put("3", 9)
                         .put("4", 0));
     }
 
@@ -245,10 +232,12 @@ public final class ForwardMessageSender {
             List<ForwardMessageNode> nodes,
             String resid,
             String source,
-            String summary,
-            String fileName
+            String summary
     ) throws Exception {
-        String uniseq = fileName;
+        // These are presentation identifiers. They are deliberately independent
+        // from the uploaded root entry name (which must remain "MultiMsg").
+        String fileName = UUID.randomUUID().toString();
+        String uniseq = UUID.randomUUID().toString();
         JSONArray news = new JSONArray();
         for (int i = 0; i < Math.min(4, nodes.size()); i++) {
             ForwardMessageNode node = nodes.get(i);
@@ -264,7 +253,7 @@ public final class ForwardMessageSender {
                 .put("summary", summary)
                 .put("uniseq", uniseq);
         JSONObject extra = new JSONObject()
-                .put("filename", uniseq)
+                .put("filename", fileName)
                 .put("tsum", nodes.size());
         return new JSONObject()
                 .put("app", "com.tencent.multimsg")
