@@ -2,6 +2,7 @@ package moe.ono.creator.forward;
 
 import static moe.ono.bridge.ntapi.ChatTypeConstants.C2C;
 import static moe.ono.bridge.ntapi.ChatTypeConstants.GROUP;
+import static moe.ono.bridge.ntapi.RelationNTUinAndUidApi.getUidFromUin;
 import static moe.ono.bridge.ntapi.RelationNTUinAndUidApi.getUinFromUid;
 import static moe.ono.util.Utils.bytesToHex;
 
@@ -65,7 +66,7 @@ public final class ForwardMessageSender {
         Toasts.info(context, "正在上传 " + nodes.size() + " 条转发消息…");
         new Thread(() -> {
             try {
-                JSONObject multiMsg = buildMultiMsg(nodes);
+                JSONObject multiMsg = buildMultiMsg(nodes, peer, chatType);
                 Logger.d("ForwardMessageSender-multiMsg", multiMsg.toString());
                 byte[] encoded = QPacketHelperKt.buildMessage(multiMsg.toString());
                 byte[] compressed = gzip(encoded);
@@ -111,37 +112,49 @@ public final class ForwardMessageSender {
         }, "ono-forward-uploader").start();
     }
 
-    private static JSONObject buildMultiMsg(List<ForwardMessageNode> nodes) throws Exception {
+    private static JSONObject buildMultiMsg(
+            List<ForwardMessageNode> nodes,
+            String peer,
+            int chatType
+    ) throws Exception {
         JSONArray records = new JSONArray();
+        boolean group = chatType == GROUP;
+        long groupUin = group ? Long.parseLong(peer) : 0L;
+        long peerUin = group ? 0L : Long.parseLong(getUinFromUid(peer));
+
         for (ForwardMessageNode node : nodes) {
-            // Keep the record envelope identical to the original, known-good
-            // single-message implementation. Only field 3/body varies per node.
+            String senderUid = "";
+            try {
+                String resolved = getUidFromUin(String.valueOf(node.getUin()));
+                if (resolved != null) senderUid = resolved;
+            } catch (RuntimeException e) {
+                Logger.w("Unable to resolve forward sender UID: " + node.getUin());
+            }
+
             JSONObject head = new JSONObject()
                     .put("1", node.getUin())
-                    .put("5", new JSONObject())
-                    .put("6", new JSONObject())
-                    .put("7", new JSONObject())
-                    .put("8", new JSONObject()
-                        .put("1", 10001)
+                    .put("2", senderUid);
+            if (group) {
+                head.put("8", new JSONObject()
+                        .put("1", groupUin)
                         .put("4", node.getNickname())
                         .put("5", 2));
+            } else {
+                head.put("5", peerUin)
+                        .put("6", peer)
+                        .put("7", new JSONObject().put("6", node.getNickname()));
+            }
 
+            long sequence = ThreadLocalRandom.current().nextLong(1, Integer.MAX_VALUE);
             JSONObject contentHead = new JSONObject()
-                    .put("1", 82)
-                    .put("2", new JSONObject())
-                    .put("3", new JSONObject())
+                    .put("1", group ? 82 : 166)
                     .put("4", ThreadLocalRandom.current().nextInt(0, 10_000_000))
-                    .put("5", ThreadLocalRandom.current().nextInt(0, 100_000))
-                    .put("6", ThreadLocalRandom.current().nextInt(0, 10_000_000))
+                    .put("5", sequence)
+                    .put("6", node.getTimeSeconds())
                     .put("7", 1)
                     .put("8", 0)
                     .put("9", 0)
-                    .put("15", new JSONObject()
-                            .put("1", 0)
-                            .put("2", 0)
-                            .put("3", 0)
-                            .put("4", "")
-                            .put("5", ""));
+                    .put("11", sequence);
 
             JSONObject body = new JSONObject().put(
                     "1",
@@ -170,17 +183,20 @@ public final class ForwardMessageSender {
     }
 
     private static JSONObject buildUploadRequest(String peer, int chatType, byte[] compressed) throws Exception {
-        // Preserve the original request shape. For C2C, field 2 expects the
-        // numeric UIN rather than the NT UID used by the current session.
-        long target = Long.parseLong(chatType == GROUP ? peer : getUinFromUid(peer));
+        // LongMsgPeerInfo.field 2 is an NT UID string. Group requests additionally
+        // carry the numeric group UIN in LongMsgSendReq.field 3.
         JSONObject info = new JSONObject()
                 .put("1", chatType == C2C ? 1 : 3)
-                .put("2", new JSONObject().put("2", target))
+                .put("2", new JSONObject().put("2", peer))
                 .put("4", "hex->" + bytesToHex(compressed));
+        if (chatType == GROUP) {
+            info.put("3", Long.parseLong(peer));
+        }
         return new JSONObject()
                 .put("2", info)
                 .put("15", new JSONObject()
-                        .put("1", 4)
+                        // Android phone: sub-command 3, client type 2, platform 9.
+                        .put("1", 3)
                         .put("2", 2)
                         .put("3", 9)
                         .put("4", 0));
@@ -234,9 +250,6 @@ public final class ForwardMessageSender {
             String source,
             String summary
     ) throws Exception {
-        // These are presentation identifiers. They are deliberately independent
-        // from the uploaded root entry name (which must remain "MultiMsg").
-        String fileName = UUID.randomUUID().toString();
         String uniseq = UUID.randomUUID().toString();
         JSONArray news = new JSONArray();
         for (int i = 0; i < Math.min(4, nodes.size()); i++) {
@@ -253,7 +266,7 @@ public final class ForwardMessageSender {
                 .put("summary", summary)
                 .put("uniseq", uniseq);
         JSONObject extra = new JSONObject()
-                .put("filename", fileName)
+                .put("filename", uniseq)
                 .put("tsum", nodes.size());
         return new JSONObject()
                 .put("app", "com.tencent.multimsg")
