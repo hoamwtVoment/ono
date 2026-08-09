@@ -46,27 +46,41 @@ public final class ForwardMessageNode {
             for (int i = 0; i < elements.length(); i++) {
                 JSONObject element = elements.optJSONObject(i);
                 if (element == null) continue;
-                JSONObject text = element.optJSONObject("1");
-                if (text != null) {
-                    String value = text.optString("1", "");
-                    if (!value.isEmpty()) out.append(value);
-                } else if (element.has("4")) {
+                String text = extractText(element);
+                if (!text.isEmpty()) {
+                    out.append(text);
+                } else if (element.has("2")) {
+                    out.append("[表情]");
+                } else if (element.has("3") || element.has("4") || element.has("8")) {
                     out.append("[图片]");
                 } else if (element.has("6")) {
-                    out.append("[语音]");
+                    out.append("[动画表情]");
                 } else if (element.has("12")) {
-                    out.append("[结构化消息]");
-                } else if (element.has("51")) {
                     out.append("[卡片]");
-                } else {
-                    out.append("[消息]");
+                } else if (element.has("51") || element.has("53")) {
+                    out.append("[卡片]");
                 }
                 if (out.length() >= 80) break;
             }
             String result = out.toString().replace('\n', ' ').trim();
-            return result.isEmpty() ? "[消息]" : result;
+            return result.isEmpty() ? "消息" : result;
         } catch (Exception ignored) {
-            return "[无法预览]";
+            return "消息";
         }
+    }
+
+    private static String extractText(JSONObject element) {
+        JSONObject protobufText = element.optJSONObject("1");
+        if (protobufText != null) {
+            String content = protobufText.optString("1", "");
+            if (!content.isEmpty()) return content;
+        }
+
+        JSONObject ntText = element.optJSONObject("textElement");
+        if (ntText != null) {
+            String content = ntText.optString("content", "");
+            if (!content.isEmpty()) return content;
+        }
+        return "";
     }
 }
