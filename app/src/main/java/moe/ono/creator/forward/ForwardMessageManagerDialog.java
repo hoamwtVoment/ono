@@ -38,6 +38,14 @@ public final class ForwardMessageManagerDialog {
             String defaultElements,
             Runnable onChanged
     ) {
+        final android.app.Dialog[] dialogRef = new android.app.Dialog[1];
+        Runnable notifyChanged = () -> {
+            if (dialogRef[0] != null) {
+                dialogRef[0].setTitle(buildTitle(draft));
+            }
+            if (onChanged != null) onChanged.run();
+        };
+
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(context, 16);
@@ -49,9 +57,7 @@ public final class ForwardMessageManagerDialog {
 
         RecyclerView list = new RecyclerView(context);
         list.setLayoutManager(new LinearLayoutManager(context));
-        ForwardAdapter adapter = new ForwardAdapter(draft, () -> {
-            if (onChanged != null) onChanged.run();
-        });
+        ForwardAdapter adapter = new ForwardAdapter(draft, notifyChanged);
         list.setAdapter(adapter);
         root.addView(list, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -69,10 +75,11 @@ public final class ForwardMessageManagerDialog {
         root.addView(buttons);
 
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context)
-                .setTitle("转发消息管理（" + draft.size() + "）")
+                .setTitle(buildTitle(draft))
                 .setView(root)
                 .setPositiveButton("完成", null);
         final android.app.Dialog dialog = builder.create();
+        dialogRef[0] = dialog;
 
         add.setOnClickListener(v -> showEditor(
                 context,
@@ -83,7 +90,7 @@ public final class ForwardMessageManagerDialog {
                 node -> {
                     draft.add(node);
                     adapter.notifyItemInserted(draft.size() - 1);
-                    if (onChanged != null) onChanged.run();
+                    notifyChanged.run();
                 }
         ));
 
@@ -97,7 +104,7 @@ public final class ForwardMessageManagerDialog {
                         int old = draft.size();
                         draft.clear();
                         adapter.notifyItemRangeRemoved(0, old);
-                        if (onChanged != null) onChanged.run();
+                        notifyChanged.run();
                     })
                     .show();
         });
@@ -111,7 +118,7 @@ public final class ForwardMessageManagerDialog {
                 node -> {
                     draft.set(position, node);
                     adapter.notifyItemChanged(position);
-                    if (onChanged != null) onChanged.run();
+                    notifyChanged.run();
                 }
         ));
 
@@ -128,7 +135,10 @@ public final class ForwardMessageManagerDialog {
                 if (from < 0 || to < 0) return false;
                 draft.move(from, to);
                 adapter.notifyItemMoved(from, to);
-                if (onChanged != null) onChanged.run();
+                int first = Math.min(from, to);
+                int changedCount = Math.abs(from - to) + 1;
+                recyclerView.post(() -> adapter.notifyItemRangeChanged(first, changedCount));
+                notifyChanged.run();
                 return true;
             }
 
@@ -138,7 +148,9 @@ public final class ForwardMessageManagerDialog {
                 if (position < 0) return;
                 draft.remove(position);
                 adapter.notifyItemRemoved(position);
-                if (onChanged != null) onChanged.run();
+                int remaining = draft.size() - position;
+                if (remaining > 0) adapter.notifyItemRangeChanged(position, remaining);
+                notifyChanged.run();
             }
         });
         helper.attachToRecyclerView(list);
@@ -146,6 +158,10 @@ public final class ForwardMessageManagerDialog {
     }
 
     private interface NodeConsumer { void accept(ForwardMessageNode node); }
+
+    private static String buildTitle(ForwardMessageDraft draft) {
+        return "转发消息管理（" + draft.size() + "）";
+    }
 
     private static void showEditor(
             Context context,
@@ -284,6 +300,8 @@ public final class ForwardMessageManagerDialog {
                 if (p < 0) return true;
                 draft.remove(p);
                 notifyItemRemoved(p);
+                int remaining = draft.size() - p;
+                if (remaining > 0) notifyItemRangeChanged(p, remaining);
                 if (changed != null) changed.run();
                 return true;
             });

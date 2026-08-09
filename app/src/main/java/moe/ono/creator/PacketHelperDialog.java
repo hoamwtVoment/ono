@@ -307,6 +307,10 @@ public class PacketHelperDialog extends BottomPopupView {
                     case "element":
                         editText.setHint("Raw(array)...");
                         mRgSendBy.setVisibility(VISIBLE);
+                        forwardConfig.setVisibility(
+                                mRgSendBy.getCheckedRadioButtonId() == R.id.rb_send_by_forwarding
+                                        ? VISIBLE : GONE
+                        );
                         break;
                     case "ark":
                         editText.setHint("Json...");

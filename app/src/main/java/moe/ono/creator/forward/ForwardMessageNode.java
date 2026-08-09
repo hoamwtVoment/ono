@@ -4,6 +4,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Iterator;
+
 /** One independent record inside a QQ MultiMsg forward container. */
 public final class ForwardMessageNode {
     private long uin;
@@ -34,9 +36,57 @@ public final class ForwardMessageNode {
     public JSONArray parseElements() throws JSONException {
         String source = elementsJson.trim();
         if (source.isEmpty()) throw new JSONException("消息元素不能为空");
-        if (source.startsWith("[")) return new JSONArray(source);
-        if (source.startsWith("{")) return new JSONArray().put(new JSONObject(source));
-        throw new JSONException("消息元素必须是 JSON 对象或数组");
+        JSONArray elements;
+        if (source.startsWith("[")) {
+            elements = new JSONArray(source);
+        } else if (source.startsWith("{")) {
+            elements = new JSONArray().put(new JSONObject(source));
+        } else {
+            throw new JSONException("消息元素必须是 JSON 对象或数组");
+        }
+        if (elements.length() == 0) {
+            throw new JSONException("消息元素数组不能为空");
+        }
+        for (int i = 0; i < elements.length(); i++) {
+            JSONObject element = elements.optJSONObject(i);
+            if (element == null) {
+                throw new JSONException("第 " + (i + 1) + " 个消息元素必须是 JSON 对象");
+            }
+            if (element.length() == 0) {
+                throw new JSONException("第 " + (i + 1) + " 个消息元素不能为空");
+            }
+            validateNumericKeys(element, "[" + i + "]");
+        }
+        return elements;
+    }
+
+    private static void validateNumericKeys(Object value, String path) throws JSONException {
+        if (value == null || value == JSONObject.NULL) {
+            throw new JSONException(path + " 的值不能为 null");
+        } else if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                int fieldNumber;
+                try {
+                    fieldNumber = Integer.parseInt(key);
+                } catch (NumberFormatException e) {
+                    throw new JSONException(path + " 含有非数字字段名：" + key);
+                }
+                if (fieldNumber <= 0 || fieldNumber > 536_870_911) {
+                    throw new JSONException(path + " 含有无效字段号：" + key);
+                }
+                validateNumericKeys(object.opt(key), path + "." + key);
+            }
+        } else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            for (int i = 0; i < array.length(); i++) {
+                validateNumericKeys(array.opt(i), path + "[" + i + "]");
+            }
+        } else if (value instanceof Boolean || value instanceof Double || value instanceof Float) {
+            throw new JSONException(path + " 的值必须是整数、字符串、对象或数组");
+        }
     }
 
     public String previewText() {
@@ -62,7 +112,14 @@ public final class ForwardMessageNode {
                 }
                 if (out.length() >= 80) break;
             }
-            String result = out.toString().replace('\n', ' ').trim();
+            String result = out.toString().replaceAll("[\\r\\n\\t]+", " ")
+                    .replaceAll(" {2,}", " ")
+                    .trim();
+            int codePointCount = result.codePointCount(0, result.length());
+            if (codePointCount > 80) {
+                int end = result.offsetByCodePoints(0, 80);
+                result = result.substring(0, end) + "…";
+            }
             return result.isEmpty() ? "消息" : result;
         } catch (Exception ignored) {
             return "消息";
@@ -76,11 +133,6 @@ public final class ForwardMessageNode {
             if (!content.isEmpty()) return content;
         }
 
-        JSONObject ntText = element.optJSONObject("textElement");
-        if (ntText != null) {
-            String content = ntText.optString("content", "");
-            if (!content.isEmpty()) return content;
-        }
         return "";
     }
 }

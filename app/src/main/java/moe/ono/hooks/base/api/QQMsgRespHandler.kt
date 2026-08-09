@@ -384,33 +384,32 @@ class QQMsgRespHandler : ApiHookItem() {
                     Logger.d("on trpc.group.long_msg_interface.MsgService.SsoSendLongMsg")
                     Logger.d("obj: " + obj.toString(4))
 
-                    val resid = obj.getJSONObject("2").getString("3")
+                    val resid = obj.optJSONObject("2")?.optString("3").orEmpty()
+                    if (resid.isEmpty()) {
+                        Logger.w("SsoSendLongMsg response does not contain resid")
+                    } else {
+                        Logger.d("resid", resid)
+                        try {
+                            if (PacketHelperDialog.mRgSendBy?.checkedRadioButtonId == R.id.rb_send_by_longmsg) {
+                                val content = "{\n" +
+                                        "    \"37\": {\n" +
+                                        "        \"6\": 1,\n" +
+                                        "        \"7\": \"$resid\",\n" +
+                                        "        \"17\": 0,\n" +
+                                        "        \"19\": {\n" +
+                                        "            \"15\": 0,\n" +
+                                        "            \"31\": 0,\n" +
+                                        "            \"41\": 0\n" +
+                                        "        }\n" +
+                                        "    }\n" +
+                                        "}"
 
-                    Logger.d("resid", resid)
-                    try {
-                        if (PacketHelperDialog.mRgSendBy.checkedRadioButtonId == R.id.rb_send_by_longmsg){
-                            val content = "{\n" +
-                                    "    \"37\": {\n" +
-                                    "        \"6\": 1,\n" +
-                                    "        \"7\": \"$resid\",\n" +
-                                    "        \"17\": 0,\n" +
-                                    "        \"19\": {\n" +
-                                    "            \"15\": 0,\n" +
-                                    "            \"31\": 0,\n" +
-                                    "            \"41\": 0\n" +
-                                    "        }\n" +
-                                    "    }\n" +
-                                    "}"
-
-                            PacketHelperDialog.setContent(content, true)
-
+                                PacketHelperDialog.setContent(content, true)
+                            }
+                        } catch (e: Exception) {
+                            Logger.e("QQMsgRespHandler", e)
                         }
-
-                    } catch (e: Exception) {
-                        Logger.e("QQMsgRespHandler", e)
                     }
-
-
                 }
             }
         }

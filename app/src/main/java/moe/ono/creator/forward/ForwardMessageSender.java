@@ -223,30 +223,6 @@ public final class ForwardMessageSender {
                 if (!direct.isEmpty()) return direct;
             }
         }
-        return findBase64LikeString(response, 0);
-    }
-
-    private static String findBase64LikeString(Object value, int depth) {
-        if (value == null || depth > 8) return "";
-        if (value instanceof JSONObject) {
-            JSONObject object = (JSONObject) value;
-            JSONArray names = object.names();
-            if (names == null) return "";
-            for (int i = 0; i < names.length(); i++) {
-                Object child = object.opt(names.optString(i));
-                String found = findBase64LikeString(child, depth + 1);
-                if (!found.isEmpty()) return found;
-            }
-        } else if (value instanceof JSONArray) {
-            JSONArray array = (JSONArray) value;
-            for (int i = 0; i < array.length(); i++) {
-                String found = findBase64LikeString(array.opt(i), depth + 1);
-                if (!found.isEmpty()) return found;
-            }
-        } else if (value instanceof String) {
-            String text = (String) value;
-            if (text.length() >= 32 && text.matches("[A-Za-z0-9+/=_-]+")) return text;
-        }
         return "";
     }
 
