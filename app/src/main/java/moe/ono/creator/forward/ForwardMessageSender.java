@@ -19,6 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.GZIPOutputStream;
 
 import moe.ono.bridge.kernelcompat.ContactCompat;
+import moe.ono.bridge.ntapi.MsgConstants;
 import moe.ono.creator.PacketHelperDialog;
 import moe.ono.hooks.base.util.Toasts;
 import moe.ono.hooks.protocol.QPacketHelperKt;
@@ -98,7 +99,11 @@ public final class ForwardMessageSender {
                 String ark = buildArk(nodes, resid, source, summary).toString();
                 SyncUtils.runOnUiThread(() -> {
                     try {
-                        PacketHelperDialog.send_ark_msg(ark, contactCompat);
+                        PacketHelperDialog.send_ark_msg(
+                                ark,
+                                contactCompat,
+                                MsgConstants.MSG_SUB_TYPE_ARK_MULTI_MSG
+                        );
                         Toasts.success(context, "合并转发已发送");
                     } catch (Exception e) {
                         Logger.e("发送转发 Ark 失败", e);

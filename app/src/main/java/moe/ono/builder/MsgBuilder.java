@@ -37,8 +37,13 @@ public class MsgBuilder {
 
     @NonNull
     public static MsgElement nt_build_ark(@NonNull String json) {
+        return nt_build_ark(json, null);
+    }
+
+    @NonNull
+    public static MsgElement nt_build_ark(@NonNull String json, Integer subElementType) {
         MsgElement msgElement = new MsgElement();
-        ArkElement arkElement = new ArkElement(json,null,null);
+        ArkElement arkElement = new ArkElement(json, null, subElementType);
         msgElement.setArkElement(arkElement);
         msgElement.setElementType(10);
         return msgElement;
