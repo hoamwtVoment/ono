@@ -1,7 +1,9 @@
 package moe.ono.creator.forward;
 
 import android.content.Context;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -18,7 +20,11 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONException;
 
+import moe.ono.bridge.ntapi.ChatTypeConstants;
 import moe.ono.hooks.base.util.Toasts;
+import moe.ono.util.ContactUtils;
+import moe.ono.util.Logger;
+import moe.ono.util.Session;
 
 /** Programmatic UI so no layout XML/resource ID changes are required. */
 public final class ForwardMessageManagerDialog {
@@ -164,6 +170,18 @@ public final class ForwardMessageManagerDialog {
         nickname.setHint("显示昵称");
         nickname.setText(existing == null ? defaultNickname : existing.getNickname());
         form.addView(nickname);
+        uin.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                nickname.setText(getDisplayNameForUin(s.toString().trim()));
+            }
+        });
 
         EditText time = new EditText(context);
         time.setHint("时间戳（秒，留空为当前时间）");
@@ -206,6 +224,20 @@ public final class ForwardMessageManagerDialog {
                     }
                 }));
         dialog.show();
+    }
+
+    private static String getDisplayNameForUin(String uin) {
+        if (uin.isEmpty()) return "";
+        try {
+            if (Session.getCurrentChatType() == ChatTypeConstants.GROUP) {
+                long groupUin = Long.parseLong(Session.getCurrentPeerID());
+                return ContactUtils.getDisplayNameForUin(uin, groupUin);
+            }
+            return ContactUtils.getDisplayNameForUin(uin);
+        } catch (RuntimeException e) {
+            Logger.e("Failed to resolve display name for UIN " + uin, e);
+            return uin;
+        }
     }
 
     private interface EditListener { void edit(int position); }

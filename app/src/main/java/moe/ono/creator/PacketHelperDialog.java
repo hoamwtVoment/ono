@@ -98,6 +98,7 @@ import moe.ono.hooks.base.api.QQMsgRespHandler;
 import moe.ono.hooks.protocol.QPacketHelperKt;
 import moe.ono.hooks.base.util.Toasts;
 import moe.ono.util.AppRuntimeHelper;
+import moe.ono.util.ContactUtils;
 import moe.ono.ui.CommonContextWrapper;
 import moe.ono.util.Logger;
 import moe.ono.util.SafUtils;
@@ -201,6 +202,19 @@ public class PacketHelperDialog extends BottomPopupView {
             etNickname.setVisibility(VISIBLE);
 
             etUin.setText(AppRuntimeHelper.getAccount());
+            etNickname.setText(getDisplayNameForUin(etUin.getText().toString().trim()));
+            etUin.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    etNickname.setText(getDisplayNameForUin(s.toString().trim()));
+                }
+            });
 
             mRbXmlForward = findViewById(R.id.xml_forward);
             mRbXmlForward.setText("\u5b8c\u6574\u8f6c\u53d1\u6a21\u5f0f");
@@ -499,6 +513,19 @@ public class PacketHelperDialog extends BottomPopupView {
         }, 100);
 
 
+    }
+
+    private static String getDisplayNameForUin(String uin) {
+        if (uin.isEmpty()) return "";
+        try {
+            if (chatType == GROUP) {
+                return ContactUtils.getDisplayNameForUin(uin, Long.parseLong(peer));
+            }
+            return ContactUtils.getDisplayNameForUin(uin);
+        } catch (RuntimeException e) {
+            Logger.e("Failed to resolve display name for UIN " + uin, e);
+            return uin;
+        }
     }
 
 
