@@ -437,8 +437,7 @@ public class PacketHelperDialog extends BottomPopupView {
                                 etHint.getText().toString(),
                                 mRbXmlForward.isChecked(),
                                 peer,
-                                chatType,
-                                contactCompat
+                                chatType
                         );
                         return;
                     }
@@ -727,17 +726,9 @@ public class PacketHelperDialog extends BottomPopupView {
 
 
     public static void send_ark_msg(String text, ContactCompat contactCompat) throws JSONException {
-        send_ark_msg(text, contactCompat, null);
-    }
-
-    public static void send_ark_msg(
-            String text,
-            ContactCompat contactCompat,
-            Integer subElementType
-    ) throws JSONException {
         new JSONObject(text);
         ArrayList<MsgElement> elements = new ArrayList<>();
-        MsgElement msgElement = nt_build_ark(text, subElementType);
+        MsgElement msgElement = nt_build_ark(text);
         elements.add(msgElement);
         Nt_kernel_bridge.send_msg(contactCompat, elements);
     }

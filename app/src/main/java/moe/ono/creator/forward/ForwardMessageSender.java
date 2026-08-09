@@ -18,9 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.GZIPOutputStream;
 
-import moe.ono.bridge.kernelcompat.ContactCompat;
-import moe.ono.bridge.ntapi.MsgConstants;
-import moe.ono.creator.PacketHelperDialog;
+import moe.ono.hooks.base.api.QQMsgRespHandler;
 import moe.ono.hooks.base.util.Toasts;
 import moe.ono.hooks.protocol.QPacketHelperKt;
 import moe.ono.service.QQInterfaces;
@@ -43,8 +41,7 @@ public final class ForwardMessageSender {
             String summaryText,
             boolean completeMode,
             String peer,
-            int chatType,
-            ContactCompat contactCompat
+            int chatType
     ) {
         final List<ForwardMessageNode> nodes = new ArrayList<>(draft.snapshot());
         try {
@@ -97,19 +94,23 @@ public final class ForwardMessageSender {
                 String summary = summaryText == null ? "" : summaryText.trim();
                 if (summary.isEmpty()) summary = "查看" + nodes.size() + "条转发消息";
                 String ark = buildArk(nodes, resid, source, summary).toString();
-                SyncUtils.runOnUiThread(() -> {
-                    try {
-                        PacketHelperDialog.send_ark_msg(
-                                ark,
-                                contactCompat,
-                                MsgConstants.MSG_SUB_TYPE_ARK_MULTI_MSG
-                        );
-                        Toasts.success(context, "合并转发已发送");
-                    } catch (Exception e) {
-                        Logger.e("发送转发 Ark 失败", e);
-                        Toasts.error(context, "资源上传成功，但卡片发送失败：" + e.getMessage());
-                    }
-                });
+                // Use the same field-51 protobuf path as the original forwarding
+                // implementation. This avoids a sender-only NT Kernel local echo;
+                // both sender and recipients now render the server-delivered record.
+                byte[] compressedArk = QQMsgRespHandler.Companion.compressData(ark);
+                JSONObject lightAppElement = new JSONObject().put(
+                        "51",
+                        new JSONObject().put("1", "hex->" + bytesToHex(compressedArk))
+                );
+                QPacketHelperKt.sendMessage(
+                        lightAppElement.toString(),
+                        peer,
+                        chatType == GROUP,
+                        "element",
+                        false,
+                        ""
+                );
+                SyncUtils.runOnUiThread(() -> Toasts.success(context, "合并转发已发送"));
             } catch (Exception e) {
                 Logger.e("ForwardMessageSender", e);
                 SyncUtils.runOnUiThread(() -> Toasts.error(context, "合并转发失败：" + e.getMessage()));
