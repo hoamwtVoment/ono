@@ -1,13 +1,12 @@
 package moe.ono.hooks.item.developer
 
 import android.annotation.SuppressLint
+import android.provider.Settings
 import de.robv.android.xposed.XposedHelpers
 import moe.ono.ext.toHex
 import moe.ono.hostInfo
 import moe.ono.hooks._base.BaseSwitchFunctionHookItem
 import moe.ono.hooks._core.annotation.HookItem
-import moe.ono.service.PlatformUtils.getQUA
-import moe.ono.service.PlatformUtils.getAndroidID
 import moe.ono.service.http.HttpServer
 import moe.ono.util.Initiator.loadClass
 import moe.ono.util.Logger
@@ -39,6 +38,13 @@ class QSignHook : BaseSwitchFunctionHookItem() {
             XposedHelpers.callMethod(qimeiService() ?: return@runCatching "", method) as? String ?: ""
         }.getOrDefault("")
 
+        private fun currentQua(): String =
+            "V1_AND_SQ_${hostInfo.versionName}_${hostInfo.versionCode}_YYB_D"
+
+        private fun currentAndroidId(): String = runCatching {
+            Settings.Secure.getString(hostInfo.application.contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull().orEmpty()
+
         fun identity(): JSONObject {
             val feKit = runCatching { com.tencent.mobileqq.fe.FEKit.getInstance() }.getOrNull()
             val whiteList = runCatching { feKit?.cmdWhiteList.orEmpty() }.getOrDefault(emptyList())
@@ -47,8 +53,8 @@ class QSignHook : BaseSwitchFunctionHookItem() {
                 put("packageName", hostInfo.packageName)
                 put("versionName", hostInfo.versionName)
                 put("versionCode", hostInfo.versionCode)
-                put("qua", getQUA())
-                put("androidId", getAndroidID())
+                put("qua", currentQua())
+                put("androidId", currentAndroidId())
                 put("qimei16", qimei("getQimei16"))
                 put("qimei36", qimei("getQimei36"))
                 put("signCommandWhitelist", whiteList)
@@ -86,7 +92,7 @@ class QSignHook : BaseSwitchFunctionHookItem() {
                 val qsecObj = XposedHelpers.newInstance(qsecClass)
                 val instance = XposedHelpers.callStaticMethod(signClass, "getInstance")
 
-                val qua = getQUA()
+                val qua = currentQua()
                 Logger.d("callGetSign: $cmd, $buffer, $seq, $uin, $qua")
                 val resultObj = XposedHelpers.callMethod(
                     instance, "getSign",
