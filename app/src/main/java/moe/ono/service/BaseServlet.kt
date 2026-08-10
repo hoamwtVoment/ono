@@ -1,6 +1,7 @@
 package moe.ono.service
 
 import android.content.Intent
+import androidx.core.content.IntentCompat
 import com.tencent.qphone.base.remote.FromServiceMsg
 import com.tencent.qphone.base.remote.ToServiceMsg
 import moe.ono.util.Logger
@@ -30,7 +31,11 @@ abstract class BaseServlet: MSFServlet() {
 
     override fun onReceive(intent: Intent, fromServiceMsg: FromServiceMsg) {
         val toServiceMsg: ToServiceMsg =
-            intent.getParcelableExtra(ToServiceMsg::class.java.simpleName)!!
+            IntentCompat.getParcelableExtra(
+                intent,
+                ToServiceMsg::class.java.simpleName,
+                ToServiceMsg::class.java
+            )!!
         fromServiceMsg.attributes[FromServiceMsg::class.java.simpleName] = toServiceMsg
         Logger.d(toServiceMsg.toString())
         Logger.d(toServiceMsg.extraData.toMap().toString())
@@ -41,7 +46,11 @@ abstract class BaseServlet: MSFServlet() {
 
     override fun onSend(intent: Intent, packet: Packet) {
         val toServiceMsg: ToServiceMsg? =
-            intent.getParcelableExtra(ToServiceMsg::class.java.simpleName)
+            IntentCompat.getParcelableExtra(
+                intent,
+                ToServiceMsg::class.java.simpleName,
+                ToServiceMsg::class.java
+            )
         toServiceMsg?.let {
             packet.setSSOCommand(toServiceMsg.serviceCmd)
             packet.putSendData(toServiceMsg.wupBuffer)

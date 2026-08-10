@@ -387,9 +387,9 @@ object HoldRevokeMessageCore {
         kmsgSvc!!.getSingleMsg(contact, recallMsgSeq.toLong(), (label@{ queryResult, errMsg, msgList ->
             try {
                 var msgObject: MsgRecord? = null
-                if (queryResult === 0 && msgList != null && !msgList.isEmpty()) {
+                if (queryResult == 0 && msgList != null && !msgList.isEmpty()) {
                     msgObject = msgList[0]
-                } else if (queryResult === 0) {
+                } else if (queryResult == 0) {
                     Logger.d("onRecallSysMsgForNT: msg not found, msgSeq=$recallMsgSeq")
                 } else {
                     Logger.e("onRecallSysMsgForNT error: getMsgsByMsgId failed, result=$queryResult, errMsg=$errMsg")

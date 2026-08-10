@@ -32,8 +32,10 @@ fun init(applicationContext: Application) {
         packageInfo.versionName.toString(),
         when (packageName) {
             PACKAGE_NAME_QQ -> {
-                if ("GoogleMarket" in (packageInfo.applicationInfo?.metaData?.get("AppSetting_params")
-                        ?: "") as String) {
+                val appSettingParams = packageInfo.applicationInfo?.metaData
+                    ?.getString("AppSetting_params")
+                    .orEmpty()
+                if ("GoogleMarket" in appSettingParams) {
                     HostSpecies.QQ_Play
                 } else HostSpecies.QQ
             }

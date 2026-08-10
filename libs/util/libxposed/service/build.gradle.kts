@@ -25,7 +25,6 @@ android {
 
     defaultConfig {
         minSdk = 24
-        targetSdk = 34
         buildToolsVersion = findBuildToolsVersion()
     }
     // Java 17 is required by libxposed-service

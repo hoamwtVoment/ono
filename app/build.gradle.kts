@@ -163,7 +163,9 @@ android.applicationVariants.all {
 }
 
 kotlin {
-    sourceSets.configureEach { kotlin.srcDir("$buildDir/generated/ksp/$name/kotlin/") }
+    sourceSets.configureEach {
+        kotlin.srcDir(project.layout.buildDirectory.dir("generated/ksp/$name/kotlin"))
+    }
     sourceSets.main { kotlin.srcDir(File(rootDir, "libs/util/ezxhelper/src/main/java")) }
 }
 

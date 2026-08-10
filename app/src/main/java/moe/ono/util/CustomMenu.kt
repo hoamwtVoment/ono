@@ -50,7 +50,7 @@ object CustomMenu {
         } catch (e: IllegalAccessException) {
             throw AssertionError(e)
         }
-        val item: Any = clazz.newInstance()
+        val item: Any = clazz.getDeclaredConstructor().newInstance()
         var f: Field? = Reflex.findFieldOrNull(clazz, Int::class.javaPrimitiveType, "id")
         if (f == null) {
             f = Reflex.findField(clazz, Int::class.javaPrimitiveType, "a")

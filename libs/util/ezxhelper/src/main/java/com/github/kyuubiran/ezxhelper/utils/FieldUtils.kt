@@ -296,15 +296,14 @@ fun Field.getStatic(): Any? = this.run {
  * @return 成功返回拷贝后的对象 失败返回null
  */
 fun <T> fieldCpy(srcObj: T, newObj: T): T? = tryOrLogNull {
-    var clz: Class<*> = srcObj!!::class.java
-    var fields: Array<Field>
-    while (Object::class.java != clz) {
-        fields = clz.declaredFields
-        for (f in fields) {
+    var clz: Class<*>? = srcObj!!::class.java
+    while (clz != null && Object::class.java != clz) {
+        val currentClass = clz
+        for (f in currentClass.declaredFields) {
             f.isAccessible = true
             f.set(newObj, f.get(srcObj))
         }
-        clz = clz.superclass
+        clz = currentClass.superclass
     }
     newObj
 }

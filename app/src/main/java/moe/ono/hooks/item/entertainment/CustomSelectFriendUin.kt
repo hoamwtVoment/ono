@@ -23,14 +23,17 @@ class CustomSelectFriendUin : BaseSwitchFunctionHookItem() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (!this@CustomSelectFriendUin.configIsEnable() || isConfirm.get() == true) return
                     val obj = param.thisObject?:return
-                    val map = param.args[0] as java.util.Map<String, String>
+                    val rawMap = param.args.getOrNull(0) as? java.util.Map<*, *> ?: return
+                    val currentUinList = rawMap["grab_uin_list"] as? String ?: return
+                    @Suppress("UNCHECKED_CAST")
+                    val map = rawMap as java.util.Map<String, String>
                     if (map.containsKey("grab_uin_list")) {
                         param.result = null
                         AlertDialog.Builder(ContextUtils.getCurrentActivity()).apply {
                             setTitle("自定义专属红包 Uin")
                             val uin = EditText(ContextUtils.getCurrentActivity()).apply {
                                 hint = "输入 Uin, 多个用 | 分割"
-                                setText(map.get("grab_uin_list"))
+                                setText(currentUinList)
                             }
                             setView(uin)
                             setPositiveButton("确定") { _, _ ->

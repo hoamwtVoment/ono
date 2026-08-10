@@ -4,8 +4,11 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -164,7 +167,7 @@ class QQMessageFetcherResultDialog(context: Context) : BottomPopupView(context) 
 
             if (template != null) {
                 setTextColor(template.textColors)
-                textSize = template.textSize / resources.displayMetrics.scaledDensity
+                textSize = pixelsToSp(template.textSize, resources.displayMetrics)
                 typeface = template.typeface
                 gravity = template.gravity
                 buttonTintList = template.buttonTintList
@@ -201,6 +204,17 @@ class QQMessageFetcherResultDialog(context: Context) : BottomPopupView(context) 
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Copied Text", text))
     }
+
+    private fun pixelsToSp(pixels: Float, metrics: DisplayMetrics): Float =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            TypedValue.deriveDimension(TypedValue.COMPLEX_UNIT_SP, pixels, metrics)
+        } else {
+            legacyPixelsToSp(pixels, metrics)
+        }
+
+    @Suppress("DEPRECATION")
+    private fun legacyPixelsToSp(pixels: Float, metrics: DisplayMetrics): Float =
+        pixels / metrics.scaledDensity
 
     private fun formatMsgRecord(input: String): String {
         var indentLevel = 0

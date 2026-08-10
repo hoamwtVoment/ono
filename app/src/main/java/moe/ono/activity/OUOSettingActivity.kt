@@ -14,9 +14,9 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.annotation.CallSuper
+import androidx.core.view.WindowCompat
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.material.appbar.AppBarLayout
@@ -131,14 +131,9 @@ open class OUOSettingActivity : BaseActivity() {
             if (isThemeLightMode) {
                 // QQ 8.9.78(4548)+
                 // We need to tell system we are using a light title bar and we want a dark status bar text
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val insetsController = window.decorView.windowInsetsController
-                    val flags = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-                            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                    insetsController?.setSystemBarsAppearance(flags, flags)
-                } else {
-                    window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
-                            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = true
+                    isAppearanceLightNavigationBars = true
                 }
             }
         }

@@ -4,9 +4,11 @@ import OidbSvcTrpcTcp0Xfe12
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
+import android.os.Parcelable
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import androidx.core.content.IntentCompat
 import android.widget.TextView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.lxj.xpopup.XPopup
@@ -69,9 +71,11 @@ class ProfileCardMenu : BaseSwitchFunctionHookItem() {
                 val activity = param.thisObject as Activity
                 val intent = activity.intent
                 if (intent != null) {
-                    val extras = intent.extras
-                    val allInOne: Any? =
-                        intent.getParcelableExtra("AllInOne")
+                    val allInOne: Parcelable? = IntentCompat.getParcelableExtra(
+                        intent,
+                        "AllInOne",
+                        Parcelable::class.java
+                    )
                     QQ =
                         extractUinFromAllInOneString(allInOne.toString())
                 } else {

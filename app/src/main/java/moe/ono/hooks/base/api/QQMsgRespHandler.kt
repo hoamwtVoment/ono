@@ -272,12 +272,6 @@ class QQMsgRespHandler : ApiHookItem() {
                     }
                 }
 
-                "trpc.qq_new_tech.status_svc.StatusService.UnRegister" -> {
-                    Logger.d("on trpc.qq_new_tech.status_svc.StatusService.UnRegister")
-                    QQInterfaces.update()
-                    injectServlet()
-                }
-
 //                "OidbSvcTrpcTcp.0xfe1_2" -> {
 //                    Logger.d("on OidbSvcTrpcTcp.0xfe1_2")
 ////                    Logger.i(obj.toString())

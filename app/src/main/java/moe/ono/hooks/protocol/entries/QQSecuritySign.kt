@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package moe.ono.hooks.protocol.entries
 
 import kotlinx.serialization.Serializable

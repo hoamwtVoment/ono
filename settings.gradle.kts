@@ -1,11 +1,5 @@
 @file:Suppress("UnstableApiUsage")
 
-include(":loader:sbl")
-
-
-include(":loader:hookapi")
-
-
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

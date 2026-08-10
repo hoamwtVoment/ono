@@ -40,7 +40,9 @@ object HttpServer : NanoHTTPD(7300) {
                     "uin"    to obj.optString("uin")
                 )
             }
-            Method.GET  -> session.parms
+            Method.GET  -> session.parameters.mapValues { (_, values) ->
+                values.firstOrNull().orEmpty()
+            }
             else        -> return newFixedLengthResponse(
                 Response.Status.METHOD_NOT_ALLOWED,
                 "text/plain",

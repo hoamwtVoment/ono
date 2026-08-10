@@ -2,6 +2,7 @@ package moe.ono.util
 
 import android.os.Bundle
 
+@Suppress("DEPRECATION")
 fun Bundle?.toMap(): Map<String, Any?>{
     if (this == null) return mapOf()
     val res = HashMap<String, Any?>()

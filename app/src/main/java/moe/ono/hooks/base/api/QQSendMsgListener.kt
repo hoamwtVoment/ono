@@ -17,7 +17,10 @@ class QQSendMsgListener : ApiHookItem() {
             .ignoreParam().get()
 
         hookBefore(sendMsgMethod) { param ->
-            val elements = param.args[2] as ArrayList<MsgElement>
+            val rawElements = param.args.getOrNull(2) as? ArrayList<*> ?: return@hookBefore
+            if (rawElements.any { it !is MsgElement }) return@hookBefore
+            @Suppress("UNCHECKED_CAST")
+            val elements = rawElements as ArrayList<MsgElement>
 
             for (listener in listeners) {
                 listener(param, elements)

@@ -133,6 +133,7 @@ class QQOnMsfPush : ApiHookItem() {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     private fun tryDecryptMsg(param: MethodHookParam, msgBody: Message) {
         val encryptKey = ConfigManager.dGetString(
             Constants.PrekCfgXXX + HookItemFactory.getItem(MessageEncryptor::class.java).path,

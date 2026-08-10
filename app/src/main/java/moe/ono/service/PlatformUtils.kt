@@ -11,6 +11,7 @@ import android.content.pm.PackageInfo
 import android.os.BatteryManager
 import android.os.Process
 import android.provider.Settings
+import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.serialization.Serializable
 import mqq.app.MobileQQ
 import kotlin.random.Random
@@ -28,7 +29,7 @@ internal object PlatformUtils {
 
     fun getQQVersionCode(context: Context = MobileQQ.getContext()): Int {
         val packageInfo: PackageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        return packageInfo.versionCode
+        return PackageInfoCompat.getLongVersionCode(packageInfo).toInt()
     }
 
     fun requireMinQQVersion(context: Context = MobileQQ.getContext(), version: Int) {
