@@ -34,9 +34,25 @@ class QSignHook : BaseSwitchFunctionHookItem() {
             XposedHelpers.callStaticMethod(qRoute, "api", serviceClass)
         }.getOrNull()
 
-        private fun qimei(method: String): String = runCatching {
-            XposedHelpers.callMethod(qimeiService() ?: return@runCatching "", method) as? String ?: ""
-        }.getOrDefault("")
+        private fun qimei(method: String): String {
+            val routed = runCatching {
+                XposedHelpers.callMethod(qimeiService() ?: return@runCatching "", method) as? String ?: ""
+            }.getOrDefault("")
+            if (routed.isNotBlank()) return routed
+
+            return runCatching {
+                val dtcClass = loadClass("com.tencent.mobileqq.dt.app.Dtc")
+                if (method == "getQimei36") {
+                    return@runCatching XposedHelpers.callStaticMethod(dtcClass, "getQimei36", "") as? String ?: ""
+                }
+                val appKey = XposedHelpers.callStaticMethod(dtcClass, "curAppKey") as String
+                val sdkClass = loadClass("com.tencent.qimei.sdk.QimeiSDK")
+                val sdk = XposedHelpers.callStaticMethod(sdkClass, "getInstance", appKey)
+                XposedHelpers.callMethod(sdk, "init", hostInfo.application)
+                val value = XposedHelpers.callMethod(sdk, "getQimei") ?: return@runCatching ""
+                XposedHelpers.callMethod(value, method) as? String ?: ""
+            }.getOrDefault("")
+        }
 
         private fun currentQua(): String =
             "V1_AND_SQ_${hostInfo.versionName}_${hostInfo.versionCode}_YYB_D"
@@ -113,8 +129,9 @@ class QSignHook : BaseSwitchFunctionHookItem() {
 
     @SuppressLint("DiscouragedApi")
     override fun entry(classLoader: ClassLoader) {
-        HttpServer.doStart()
         persist()
+        runCatching { HttpServer.doStart() }
+            .onFailure { Logger.e("start QSign HTTP server", it) }
 
         val signClass = loadClass("com.tencent.mobileqq.sign.QQSecuritySign")
         val qsecClass = loadClass("com.tencent.mobileqq.qsec.qsecurity.QSec")
@@ -127,13 +144,13 @@ class QSignHook : BaseSwitchFunctionHookItem() {
             String::class.java,
             ByteArray::class.java,
             ByteArray::class.java,
-            Long::class.javaPrimitiveType,
+            String::class.java,
         )
         hookAfter(m) { param ->
             val result = param.result ?: return@hookAfter
-            val extra  = XposedHelpers.getObjectField(result, "extra")  as ByteArray
-            val sign   = XposedHelpers.getObjectField(result, "sign")   as ByteArray
-            val token  = XposedHelpers.getObjectField(result, "token")  as ByteArray
+            val extra = XposedHelpers.getObjectField(result, "extra") as? ByteArray ?: ByteArray(0)
+            val sign = XposedHelpers.getObjectField(result, "sign") as? ByteArray ?: ByteArray(0)
+            val token = XposedHelpers.getObjectField(result, "token") as? ByteArray ?: ByteArray(0)
             val buffer = param.args.getOrNull(3) as? ByteArray ?: ByteArray(0)
             val seq = param.args.getOrNull(4) as? ByteArray ?: ByteArray(0)
 
